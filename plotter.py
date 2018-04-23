@@ -22,3 +22,6 @@ def arc(x, y, i, j, cw = True):
     else:
         c = "3"
     return "G0{} X{} Y{} I{} J{}".format(c, round(-x, 5), round(y, 5), round(-i, 5), round(j, 5))
+
+def go_home():
+	"G00 X0 Y0"

@@ -1,6 +1,5 @@
 import numpy as np
 import math
-import pandas as pd
 import plotter as plt
 import pygame
 
@@ -25,10 +24,9 @@ class Point():
         pygame.draw.rect(canvas, color, (self.x, canvas.get_height()-self.y, 1, 1))
         
     def plot_instructions(self):
-        return [plt.move(self.x, self.y), plt.pen_down()]
+        return [plt.pen_up(), plt.move(self.x, self.y), plt.pen_down()]
 
 
-# TODO: vertical lines
 class Line():
     # a line is defined by 2 points
     def __init__(self, point1, point2):
@@ -231,3 +229,74 @@ class CubicBezier():
     	# convert to biarc
     	c1, c2 = self.to_biarc()
     	return c1.plot_instructions() + c2.plot_instructions()
+
+
+class SineWave():
+    # Sine wave with amplitude A, width n, starting point P
+    # width = n, phase = p
+    def __init__(self, P, A, n):
+        self.P = P
+        self.A = A
+        self.n = n
+
+    # we can parametrize the wave with t
+    def point_at(self, t):
+        return Point(self.P.x + t*self.n, self.A*math.sin(2*math.pi * t) + self.P.y)
+
+
+    def draw(self, canvas, color):
+        t = 0.
+        while t <= 1:
+            p = self.point_at(t)
+            p.draw(canvas, color)
+            
+            t += 0.001
+
+    def to_bezier(self):
+        # cut into 4 parts
+        P1 = Point(0, 0).plus(self.P)
+        P2 = Point(self.n/4, self.A).plus(self.P)
+        C1 = Point(self.n/(2*math.pi), self.A).plus(self.P)
+        bez1 = CubicBezier(P1, C1, C1, P2)
+
+        P1 = Point(self.n/4, self.A).plus(self.P)
+        P2 = Point(self.n/2, 0).plus(self.P)
+        C1 = Point((math.pi-1)*self.n/(2*math.pi), self.A).plus(self.P)
+        bez2 = CubicBezier(P1, C1, C1, P2)
+
+        P1 = Point(self.n/2, 0).plus(self.P)
+        P2 = Point(3*self.n/4, -self.A).plus(self.P)
+        C1 = Point((math.pi+1)*self.n/(2*math.pi), -self.A).plus(self.P)
+        bez3 = CubicBezier(P1, C1, C1, P2)
+
+        P1 = Point(3*self.n/4, -self.A).plus(self.P)
+        P2 = Point(self.n, 0).plus(self.P)
+        C1 = Point((2*math.pi-1)*self.n/(2*math.pi), -self.A).plus(self.P)
+        bez4 = CubicBezier(P1, C1, C1, P2)
+
+        return [bez1, bez2, bez3, bez4]
+
+    def to_bezier2(self):
+        # cut into 2 parts
+        # these parameters were estimated by minimizing mse
+        k1 = 0.205165
+        k2 = 1.335837
+
+        P1 = Point(0, 0).plus(self.P)
+        P2 = Point(self.n/2, 0).plus(self.P)
+        C1 = Point(k1*self.n, self.A*k2).plus(self.P)
+        C2 = Point(self.n/2 - k1*self.n, self.A*k2).plus(self.P)
+        bez1 = CubicBezier(P1, C1, C2, P2)
+
+        P1 = Point(self.n/2, 0).plus(self.P)
+        P2 = Point(self.n, 0).plus(self.P)
+        C1 = Point(self.n/2 + k1*self.n, -self.A*k2).plus(self.P)
+        C2 = Point(self.n - k1*self.n, -self.A*k2).plus(self.P)
+        bez2 = CubicBezier(P1, C1, C2, P2)
+
+
+        # looks better, but when converting to biarcs it looks horrendous
+        return [bez1, bez2]
+
+    def plot_instructions(self):
+        pass
