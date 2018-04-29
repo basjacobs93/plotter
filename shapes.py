@@ -294,9 +294,52 @@ class SineWave():
         C2 = Point(self.n - k1*self.n, -self.A*k2).plus(self.P)
         bez2 = CubicBezier(P1, C1, C2, P2)
 
-
-        # looks better, but when converting to biarcs it looks horrendous
+        # looks better, but when converting to biarcs it looks horrible
         return [bez1, bez2]
 
+    def to_bezier3(self):
+    	# cut into 8 parts, each with 2 control points and 2 endpoints,
+    	# hence 24 points. the pattern repeats after 12
+    	# https://www.tinaja.com/glib/bezsine.pdf
+    	s2 = math.sqrt(2)
+    	pi = math.pi
+
+    	P0  = self.P
+    	P1  = Point( 1/24*self.n, (2*s2/7 - 1/7)*self.A).plus(P0)
+    	P2  = Point( 2/24*self.n, (4*s2/7 - 2/7)*self.A).plus(P0)
+    	P3  = Point( 3/24*self.n, (  s2/2      )*self.A).plus(P0)
+    	P4  = Point( 4/24*self.n, (3*s2/7 + 2/7)*self.A).plus(P0)
+    	P5  = Point( 5/24*self.n, (           1)*self.A).plus(P0)
+    	P6  = Point( 6/24*self.n, (           1)*self.A).plus(P0)
+    	P7  = Point( 7/24*self.n, (           1)*self.A).plus(P0)
+    	P8  = Point( 8/24*self.n, (3*s2/7 + 2/7)*self.A).plus(P0)
+    	P9  = Point( 9/24*self.n, (  s2/2      )*self.A).plus(P0)
+    	P10 = Point(10/24*self.n, (4*s2/7 - 2/7)*self.A).plus(P0)
+    	P11 = Point(11/24*self.n, (2*s2/7 - 1/7)*self.A).plus(P0)
+    	P12 = Point(12/24*self.n, (           0)*self.A).plus(P0)
+
+    	per1 = [CubicBezier(P0, P1, P2, P3), CubicBezier(P3, P4, P5, P6), CubicBezier(P6, P7, P8, P9), CubicBezier(P9, P10, P11, P12)]
+
+    	P0  = self.P.plus(Point(self.n/2, 0))
+    	P1  = Point( 1/24*self.n, -(2*s2/7 - 1/7)*self.A).plus(P0)
+    	P2  = Point( 2/24*self.n, -(4*s2/7 - 2/7)*self.A).plus(P0)
+    	P3  = Point( 3/24*self.n, -(  s2/2      )*self.A).plus(P0)
+    	P4  = Point( 4/24*self.n, -(3*s2/7 + 2/7)*self.A).plus(P0)
+    	P5  = Point( 5/24*self.n, -(           1)*self.A).plus(P0)
+    	P6  = Point( 6/24*self.n, -(           1)*self.A).plus(P0)
+    	P7  = Point( 7/24*self.n, -(           1)*self.A).plus(P0)
+    	P8  = Point( 8/24*self.n, -(3*s2/7 + 2/7)*self.A).plus(P0)
+    	P9  = Point( 9/24*self.n, -(  s2/2      )*self.A).plus(P0)
+    	P10 = Point(10/24*self.n, -(4*s2/7 - 2/7)*self.A).plus(P0)
+    	P11 = Point(11/24*self.n, -(2*s2/7 - 1/7)*self.A).plus(P0)
+    	P12 = Point(12/24*self.n, -(           0)*self.A).plus(P0)
+
+    	per2 = [CubicBezier(P0, P1, P2, P3), CubicBezier(P3, P4, P5, P6), CubicBezier(P6, P7, P8, P9), CubicBezier(P9, P10, P11, P12)]
+
+    	return per1 + per2
+
+
     def plot_instructions(self):
-        pass
+    	# convert to bezier curves and plot these
+    	bezs = self.to_bezier3()
+    	return [pl for bez in bezs for pl in bez.plot_instructions()]
