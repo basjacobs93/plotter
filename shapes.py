@@ -1,12 +1,12 @@
 import numpy as np
 import math
-import plotter as plt
 import pygame
 
 class Point():
     def __init__(self, x, y):
         self.x = x
         self.y = y
+        self.name = "point"
         
     def dist(self, p2):
         return math.sqrt((self.x-p2.x)**2 + (self.y-p2.y)**2)
@@ -20,11 +20,14 @@ class Point():
     def times(self, n):
         return Point(self.x*n, self.y*n)
     
-    def draw(self, canvas, color):
-        pygame.draw.rect(canvas, color, (self.x, canvas.get_height()-self.y, 1, 1))
+    def reduce(self):
+        return [self]
+
+    def draw(self, canvas):
+        canvas.point(self.x, self.y)
         
-    def plot_instructions(self):
-        return [plt.pen_up(), plt.move(self.x, self.y), plt.pen_down()]
+    def plot_instructions(self, plotter):
+        return [plotter.pen_up(), plotter.move(self.x, self.y), plotter.pen_down()]
 
 
 class Line():
@@ -32,6 +35,7 @@ class Line():
     def __init__(self, point1, point2):
         self.P1 = point1
         self.P2 = point2
+        self.name = "line"
         
     def intersect(self, line2):
         # calculates the intersection point of the lines
@@ -46,13 +50,16 @@ class Line():
     def perpendicular_at(self, P):
         U = Point(self.P2.y-self.P1.y, self.P1.x - self.P2.x)
         return Line(P, P.plus(U))
+
+    def reduce(self):
+        return [self]
     
-    def draw(self, canvas, color):
-        pygame.draw.line(canvas, color, (self.P1.x, canvas.get_height()-self.P1.y), (self.P2.x, canvas.get_height()-self.P2.y))
-        
-    def plot_instructions(self):
+    def draw(self, canvas):
+        canvas.line(self.P2.x, self.P2.y)
+
+    def plot_instructions(self, plotter):
         # assumes we are at P1
-        return [plt.move(self.P2.x, self.P2.y)]
+        return [plotter.move(self.P2.x, self.P2.y)]
 
 
 class CircleArc(): 
@@ -67,12 +74,7 @@ class CircleArc():
         self.startAngle = self.start_angle()
         self.endAngle = self.end_angle()
         self.sweepAngle = self.sweep_angle()
-        
-    def draw(self, canvas, color):
-        t = 0.
-        while t <= 1.:
-            self.point_at(t).draw(canvas, color)
-            t += 0.001
+        self.name = "arc"
     
     def sweep_angle(self):
         sw = self.endAngle - self.startAngle
@@ -95,11 +97,21 @@ class CircleArc():
         x = self.C.x + self.r * math.cos(self.startAngle + t * self.sweepAngle);
         y = self.C.y + self.r * math.sin(self.startAngle + t * self.sweepAngle);
         return Point(x, y)
+        
+    def reduce(self):
+        return [self]
+
+    def draw(self, canvas):
+        t = 0.
+        while t <= 1.:
+            self.point_at(t).draw(canvas)
+            t += 0.001
     
-    def plot_instructions(self):
+    def plot_instructions(self, plotter):
         # assumes we are at P1
         relC = self.C.minus(self.P1) # relative center
-        return [plt.arc(self.P2.x, self.P2.y, relC.x, relC.y, cw = self.cw)]
+        return [plotter.arc(self.P2.x, self.P2.y, relC.x, relC.y, cw = self.cw)]
+            
 
 
 class CubicBezier():
@@ -125,14 +137,6 @@ class CubicBezier():
             (3 * (1 - t) * (t**2)) * self.C2.y + (t**3) * self.P2.y
         return Point(x, y)
 
-    def draw(self, canvas, color):
-        t = 0.
-        while t <= 1:
-            p = self.point_at(t)
-            p.draw(canvas, color)
-            
-            t += 0.001
-    
     def to_biarc(self):
         # based on:
         # http://dlacko.org/blog/2016/10/19/approximating-bezier-curves-by-biarcs/
@@ -225,10 +229,22 @@ class CubicBezier():
             
         return (t1, t2)
 
-    def plot_instructions(self):
+    def reduce(self):
+        return list(self.to_biarc())
+
+    def draw(self, canvas):
+        t = 0.
+        while t <= 1:
+            p = self.point_at(t)
+            p.draw(canvas)
+            
+            t += 0.001
+    
+    def plot_instructions(self, plotter):
     	# convert to biarc
     	c1, c2 = self.to_biarc()
-    	return c1.plot_instructions() + c2.plot_instructions()
+    	c1.plot_instructions(plotter)
+        c2.plot_instructions(plotter)
 
 
 class SineWave():
@@ -243,61 +259,52 @@ class SineWave():
     def point_at(self, t):
         return Point(self.P.x + t*self.n, self.A*math.sin(2*math.pi * t) + self.P.y)
 
+    # def to_bezier(self):
+    #     # cut into 4 parts
+    #     P1 = Point(0, 0).plus(self.P)
+    #     P2 = Point(self.n/4, self.A).plus(self.P)
+    #     C1 = Point(self.n/(2*math.pi), self.A).plus(self.P)
+    #     bez1 = CubicBezier(P1, C1, C1, P2)
 
-    def draw(self, canvas, color):
-        t = 0.
-        while t <= 1:
-            p = self.point_at(t)
-            p.draw(canvas, color)
-            
-            t += 0.001
+    #     P1 = Point(self.n/4, self.A).plus(self.P)
+    #     P2 = Point(self.n/2, 0).plus(self.P)
+    #     C1 = Point((math.pi-1)*self.n/(2*math.pi), self.A).plus(self.P)
+    #     bez2 = CubicBezier(P1, C1, C1, P2)
+
+    #     P1 = Point(self.n/2, 0).plus(self.P)
+    #     P2 = Point(3*self.n/4, -self.A).plus(self.P)
+    #     C1 = Point((math.pi+1)*self.n/(2*math.pi), -self.A).plus(self.P)
+    #     bez3 = CubicBezier(P1, C1, C1, P2)
+
+    #     P1 = Point(3*self.n/4, -self.A).plus(self.P)
+    #     P2 = Point(self.n, 0).plus(self.P)
+    #     C1 = Point((2*math.pi-1)*self.n/(2*math.pi), -self.A).plus(self.P)
+    #     bez4 = CubicBezier(P1, C1, C1, P2)
+
+    #     return [bez1, bez2, bez3, bez4]
+
+    # def to_bezier(self):
+    #     # cut into 2 parts
+    #     # these parameters were estimated by minimizing mse
+    #     k1 = 0.205165
+    #     k2 = 1.335837
+
+    #     P1 = Point(0, 0).plus(self.P)
+    #     P2 = Point(self.n/2, 0).plus(self.P)
+    #     C1 = Point(k1*self.n, self.A*k2).plus(self.P)
+    #     C2 = Point(self.n/2 - k1*self.n, self.A*k2).plus(self.P)
+    #     bez1 = CubicBezier(P1, C1, C2, P2)
+
+    #     P1 = Point(self.n/2, 0).plus(self.P)
+    #     P2 = Point(self.n, 0).plus(self.P)
+    #     C1 = Point(self.n/2 + k1*self.n, -self.A*k2).plus(self.P)
+    #     C2 = Point(self.n - k1*self.n, -self.A*k2).plus(self.P)
+    #     bez2 = CubicBezier(P1, C1, C2, P2)
+
+    #     # looks better, but when converting to biarcs it looks horrible
+    #     return [bez1, bez2]
 
     def to_bezier(self):
-        # cut into 4 parts
-        P1 = Point(0, 0).plus(self.P)
-        P2 = Point(self.n/4, self.A).plus(self.P)
-        C1 = Point(self.n/(2*math.pi), self.A).plus(self.P)
-        bez1 = CubicBezier(P1, C1, C1, P2)
-
-        P1 = Point(self.n/4, self.A).plus(self.P)
-        P2 = Point(self.n/2, 0).plus(self.P)
-        C1 = Point((math.pi-1)*self.n/(2*math.pi), self.A).plus(self.P)
-        bez2 = CubicBezier(P1, C1, C1, P2)
-
-        P1 = Point(self.n/2, 0).plus(self.P)
-        P2 = Point(3*self.n/4, -self.A).plus(self.P)
-        C1 = Point((math.pi+1)*self.n/(2*math.pi), -self.A).plus(self.P)
-        bez3 = CubicBezier(P1, C1, C1, P2)
-
-        P1 = Point(3*self.n/4, -self.A).plus(self.P)
-        P2 = Point(self.n, 0).plus(self.P)
-        C1 = Point((2*math.pi-1)*self.n/(2*math.pi), -self.A).plus(self.P)
-        bez4 = CubicBezier(P1, C1, C1, P2)
-
-        return [bez1, bez2, bez3, bez4]
-
-    def to_bezier2(self):
-        # cut into 2 parts
-        # these parameters were estimated by minimizing mse
-        k1 = 0.205165
-        k2 = 1.335837
-
-        P1 = Point(0, 0).plus(self.P)
-        P2 = Point(self.n/2, 0).plus(self.P)
-        C1 = Point(k1*self.n, self.A*k2).plus(self.P)
-        C2 = Point(self.n/2 - k1*self.n, self.A*k2).plus(self.P)
-        bez1 = CubicBezier(P1, C1, C2, P2)
-
-        P1 = Point(self.n/2, 0).plus(self.P)
-        P2 = Point(self.n, 0).plus(self.P)
-        C1 = Point(self.n/2 + k1*self.n, -self.A*k2).plus(self.P)
-        C2 = Point(self.n - k1*self.n, -self.A*k2).plus(self.P)
-        bez2 = CubicBezier(P1, C1, C2, P2)
-
-        # looks better, but when converting to biarcs it looks horrible
-        return [bez1, bez2]
-
-    def to_bezier3(self):
     	# cut into 8 parts, each with 2 control points and 2 endpoints,
     	# hence 24 points. the pattern repeats after 12
     	# https://www.tinaja.com/glib/bezsine.pdf
@@ -338,8 +345,20 @@ class SineWave():
 
     	return per1 + per2
 
+    def reduce(self):
+        bezs = self.to_bezier()
+        return [pl for bez in bezs for pl in bez.reduce()]
 
-    def plot_instructions(self):
+    def draw(self, canvas):
+        t = 0.
+        while t <= 1:
+            p = self.point_at(t)
+            p.draw(canvas)
+            
+            t += 0.001
+
+    def plot_instructions(self, plotter):
     	# convert to bezier curves and plot these
-    	bezs = self.to_bezier3()
-    	return [pl for bez in bezs for pl in bez.plot_instructions()]
+    	bezs = self.to_bezier()
+    	return [pl for bez in bezs for pl in bez.plot_instructions(plotter)]
+
