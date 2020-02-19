@@ -6,7 +6,6 @@ class Point():
     def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.name = "point"
         
     def dist(self, p2):
         return math.sqrt((self.x-p2.x)**2 + (self.y-p2.y)**2)
@@ -35,7 +34,6 @@ class Line():
     def __init__(self, point1, point2):
         self.P1 = point1
         self.P2 = point2
-        self.name = "line"
         
     def intersect(self, line2):
         # calculates the intersection point of the lines
@@ -55,11 +53,11 @@ class Line():
         return [self]
     
     def draw(self, canvas):
-        canvas.line(self.P2.x, self.P2.y)
+        canvas.line(self.P1.x, self.P1.y, self.P2.x, self.P2.y)
 
-    def plot_instructions(self, plotter):
-        # assumes we are at P1
-        return [plotter.move(self.P2.x, self.P2.y)]
+    # def plot_instructions(self, plotter):
+    #     # assumes we are at P1
+    #     return [plotter.move(self.P2.x, self.P2.y)]
 
 
 class CircleArc(): 
@@ -74,7 +72,6 @@ class CircleArc():
         self.startAngle = self.start_angle()
         self.endAngle = self.end_angle()
         self.sweepAngle = self.sweep_angle()
-        self.name = "arc"
     
     def sweep_angle(self):
         sw = self.endAngle - self.startAngle
@@ -101,16 +98,24 @@ class CircleArc():
     def reduce(self):
         return [self]
 
-    def draw(self, canvas):
-        t = 0.
-        while t <= 1.:
-            self.point_at(t).draw(canvas)
-            t += 0.001
+    # def draw(self, canvas):
+    #     t = 0.
+    #     while t <= 1.:
+    #         self.point_at(t).draw(canvas)
+    #         t += 0.001
     
-    def plot_instructions(self, plotter):
-        # assumes we are at P1
+
+    def draw(self, canvas):
         relC = self.C.minus(self.P1) # relative center
-        return [plotter.arc(self.P2.x, self.P2.y, relC.x, relC.y, cw = self.cw)]
+        canvas.arc(self.P1.x, self.P1.y,
+                   self.P2.x, self.P2.y,
+                   relC.x, relC.y,
+                   cw = self.cw, radius = self.r, extent = self.sweepAngle)
+
+    # def plot_instructions(self, plotter):
+    #     # assumes we are at P1
+    #     relC = self.C.minus(self.P1) # relative center
+    #     return [plotter.arc(self.P2.x, self.P2.y, relC.x, relC.y, cw = self.cw)]
             
 
 

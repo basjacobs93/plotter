@@ -6,12 +6,15 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
 class Plotter():
-	def __init__(self, port):
+	def __init__(self, port, width = 170, height = 240):
 		self.port = port
 		self.baud = 115200
 		self.location = (0, 0) # x, y
 		self.pen_state = 0 # 0=up, 1=down
 		self.speed = 0
+
+		self.width = width
+		self.height = height
 
 	def wake_up(self):
 		# Open grbl serial port
@@ -72,21 +75,26 @@ class Plotter():
 	    
 	def set_unit(self):
 		# set units in millimeters
-	    self.execute("G21")   
+	    self.execute("G21")
 	
 	def go_home(self):
 		self.move_quick(0, 0)
 
 
 	# Shapes
-	def arc(self, x, y, i, j, cw = True):
+    def arc(self, x1, y1, x2, y2, i, j, cw = True, radius, extent):
+		# Draw (cw = clockwise) arc from (x1,y1) to (x2,y2) with center at (i,j)
+		if (x1, y1) != self.location:
+			self.point(x1, y1)
 	    if cw:
 	        c = "2"
 	    else:
 	        c = "3"
-	    self.execute("G0{} X{} Y{} I{} J{}".format(c, round(-x, 5), round(y, 5), round(-i, 5), round(j, 5)))
+	    self.execute("G0{} X{} Y{} I{} J{}".format(c, round(-x2, 5), round(y2, 5), round(-i, 5), round(j, 5)))
 
 	def line(self, x1, y1, x2, y2):
+		if (x1, y1) != self.location:
+			self.point(x1, y1)
 		self.move(x2, y2)
 
 	def point(self, x, y):
